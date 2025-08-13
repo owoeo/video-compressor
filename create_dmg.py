@@ -33,10 +33,17 @@ def create_dmg(app_path: str):
         print(f"✅ DMG 生成完成: {dmg_path}")
     except subprocess.CalledProcessError as e:
         print(f"❌ 生成 DMG 失败: {e}")
+def build_macos_app(flutter_project_path):
+    try:
+        subprocess.run(["flutter", "build", "macos"], cwd=flutter_project_path, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ 构建 macOS 应用失败: {e}")
+        sys.exit(1)
+    
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("用法: python create_dmg.py /path/to/YourApp.app")
+    if len(sys.argv) != 1:
+        print("用法: python create_dmg.py")
         sys.exit(1)
-
-    create_dmg(sys.argv[1])
+    build_macos_app('.')
+    create_dmg('build/macos/Build/Products/Release/compress.app')

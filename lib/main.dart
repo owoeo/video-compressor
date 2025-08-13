@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart'; // 新增导入
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:ffmpeg_kit_flutter_new/statistics.dart';
@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:ffmpeg_kit_flutter_new/media_information.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 
 void main() {
   runApp(const MyApp());
@@ -44,7 +45,7 @@ class _VideoCompressorPageState extends State<VideoCompressorPage> {
   bool _isCompressing = false;
   double _compressionProgress = 0.0;
   String _status = 'Select videos to compress';
-  String? _selectedCrf = '23';
+  double _selectedCrf = 23.0; // 将String类型改为double类型
   String? _selectedPreset = 'medium';
   String? _selectedVideoBitrate;
   String? _selectedAudioBitrate = '128k';
@@ -232,8 +233,8 @@ class _VideoCompressorPageState extends State<VideoCompressorPage> {
         }
 
         // Add CRF if provided
-        if (_selectedCrf != null && _selectedCrf!.isNotEmpty) {
-          commandParts.addAll(['-crf', _selectedCrf!]);
+        if (_selectedCrf >= 0 && _selectedCrf <= 51) {
+          commandParts.addAll(['-crf', _selectedCrf.toInt().toString()]);
         }
 
         // Add preset if provided
@@ -441,6 +442,72 @@ class _VideoCompressorPageState extends State<VideoCompressorPage> {
               ],
             ),
             const SizedBox(height: 16),
+            // 添加拖拽区域
+            DropTarget(
+              onDragDone: (detail) {
+                if (!_isCompressing) {
+                  final List<String> newPaths =
+                      detail.files
+                          .where(
+                            (file) =>
+                                file.path.toLowerCase().endsWith('.mp4') ||
+                                file.path.toLowerCase().endsWith('.mov') ||
+                                file.path.toLowerCase().endsWith('.avi') ||
+                                file.path.toLowerCase().endsWith('.mkv') ||
+                                file.path.toLowerCase().endsWith('.wmv') ||
+                                file.path.toLowerCase().endsWith('.flv') ||
+                                file.path.toLowerCase().endsWith('.webm'),
+                          )
+                          .map((file) => file.path)
+                          .toList();
+
+                  if (newPaths.isNotEmpty) {
+                    setState(() {
+                      _inputVideoPaths.addAll(newPaths);
+                      _status =
+                          'Added ${newPaths.length} videos via drag & drop. Total: ${_inputVideoPaths.length} videos.';
+                    });
+                  } else {
+                    setState(() {
+                      _status = 'No valid video files found in dropped files.';
+                    });
+                  }
+                }
+              },
+              child: Container(
+                height: 100,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  border: Border.all(
+                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.upload_file,
+                      size: 36,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _inputVideoPaths.isEmpty
+                          ? 'Drag and drop video files here'
+                          : 'Drag and drop more videos here',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             if (_inputVideoPaths.isNotEmpty) ...[
               Text('Selected ${_inputVideoPaths.length} videos:'),
               const SizedBox(height: 8),
@@ -458,7 +525,7 @@ class _VideoCompressorPageState extends State<VideoCompressorPage> {
               ),
             ] else
               const Text(
-                'No videos selected. Tap "Select Videos" to choose videos for compression.',
+                'No videos selected. Tap "Select Videos" to choose videos for compression, or drag and drop video files into the area above.',
               ),
             const SizedBox(height: 16),
             const Text(
@@ -472,36 +539,22 @@ class _VideoCompressorPageState extends State<VideoCompressorPage> {
                 labelText: 'CRF (lower = higher quality)',
                 border: OutlineInputBorder(),
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedCrf,
-                  isDense: true,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedCrf = newValue;
-                    });
-                  },
-                  items:
-                      <String>[
-                        '0',
-                        '10',
-                        '15',
-                        '18',
-                        '20',
-                        '23',
-                        '25',
-                        '28',
-                        '30',
-                        '35',
-                        '40',
-                        '51',
-                      ].map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                ),
+              child: Column(
+                children: [
+                  Slider(
+                    value: _selectedCrf,
+                    min: 0,
+                    max: 51,
+                    divisions: 51,
+                    label: _selectedCrf.round().toString(),
+                    onChanged: (double value) {
+                      setState(() {
+                        _selectedCrf = value;
+                      });
+                    },
+                  ),
+                  Text('Value: ${_selectedCrf.round()}'),
+                ],
               ),
             ),
             const SizedBox(height: 8),
